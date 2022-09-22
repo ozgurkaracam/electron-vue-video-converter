@@ -1,9 +1,31 @@
 'use strict'
 
-import { app, protocol, BrowserWindow } from 'electron'
+import { app, protocol, BrowserWindow, Menu, ipcMain } from 'electron'
 import { createProtocol } from 'vue-cli-plugin-electron-builder/lib'
 import installExtension, { VUEJS_DEVTOOLS } from 'electron-devtools-installer'
 const isDevelopment = process.env.NODE_ENV !== 'production'
+
+const ffmpeg = require('fluent-ffmpeg')
+
+
+let win;
+
+let menuTemplate=[
+  {
+    label:"Deneme"
+  },
+  {
+    label:"Developers",
+    submenu:[
+      {
+        label:"Developer Tools",
+        click(){
+          win.webContents.toggleDevTools()
+        }
+      }
+    ]
+  }
+]
 
 // Scheme must be registered before the app is ready
 protocol.registerSchemesAsPrivileged([
@@ -12,17 +34,22 @@ protocol.registerSchemesAsPrivileged([
 
 async function createWindow() {
   // Create the browser window.
-  const win = new BrowserWindow({
+   win = new BrowserWindow({
     width: 800,
     height: 600,
+    resizable:false,
+    frame:false,
     webPreferences: {
-      
-      // Use pluginOptions.nodeIntegration, leave this alone
-      // See nklayman.github.io/vue-cli-plugin-electron-builder/guide/security.html#node-integration for more info
-      nodeIntegration: process.env.ELECTRON_NODE_INTEGRATION,
-      contextIsolation: !process.env.ELECTRON_NODE_INTEGRATION
+      enableRemoteModule: false,
+      nodeIntegration: true,
+      contextIsolation: false
     }
   })
+
+
+  let mt=Menu.buildFromTemplate(menuTemplate)
+  Menu.setApplicationMenu(mt)
+
 
   if (process.env.WEBPACK_DEV_SERVER_URL) {
     // Load the url of the dev server if in development mode
@@ -79,3 +106,10 @@ if (isDevelopment) {
     })
   }
 }
+
+
+ipcMain.on("file-uploaded",(e,{path,name})=>{
+  // ffmpeg.ffprobe(path,(e,metadata)=>{
+  //   console.log(metadata)
+  // })
+})
