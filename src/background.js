@@ -1,13 +1,12 @@
 'use strict'
 
-import { app, protocol, BrowserWindow, Menu, ipcMain } from 'electron'
+import { app, protocol, BrowserWindow, Menu, ipcMain, shell } from 'electron'
 import { createProtocol } from 'vue-cli-plugin-electron-builder/lib'
 import installExtension, { VUEJS_DEVTOOLS } from 'electron-devtools-installer'
+import * as stream from "stream";
 const isDevelopment = process.env.NODE_ENV !== 'production'
 
 const ffmpeg = require('fluent-ffmpeg')
-
-
 let win;
 
 let menuTemplate=[
@@ -46,6 +45,9 @@ async function createWindow() {
     }
   })
 
+  win.webContents.send("send-data",videos)
+
+
 
   let mt=Menu.buildFromTemplate(menuTemplate)
   Menu.setApplicationMenu(mt)
@@ -54,7 +56,7 @@ async function createWindow() {
   if (process.env.WEBPACK_DEV_SERVER_URL) {
     // Load the url of the dev server if in development mode
     await win.loadURL(process.env.WEBPACK_DEV_SERVER_URL)
-    if (!process.env.IS_TEST) win.webContents.openDevTools()
+    // if (!process.env.IS_TEST) win.webContents.openDevTools()
   } else {
     createProtocol('app')
     // Load the index.html when not in development
@@ -107,9 +109,39 @@ if (isDevelopment) {
   }
 }
 
+let videos=[];
 
-ipcMain.on("file-uploaded",(e,{path,name})=>{
-  // ffmpeg.ffprobe(path,(e,metadata)=>{
-  //   console.log(metadata)
-  // })
+ipcMain.on("file-uploaded",async (e,{path,name})=>{
+  await ffmpeg.ffprobe(path,(e,metadata)=>{
+    videos.push({
+      name,
+      path,
+      duration:metadata.format.duration
+    })
+    win.webContents.send("send-data",videos)
+
+  })
+})
+
+ipcMain.on("clear-all",(e,a)=>{
+  videos=[]
+  win.webContents.send("send-data",videos)
+})
+
+ipcMain.on("convert-all", (e,type)=>{
+  let path;
+  videos.forEach((video)=>{
+     path=video.path.split(video.name)[0]
+     ffmpeg(video.path).
+     output(`${path}/${video.name} converted ${type} .${type}`)
+         .on("end",()=>{
+           console.log("ended")
+
+         })
+  })
+  win.webContents.send("finish",path)
+})
+
+ipcMain.on("open-folder",(e,path)=>{
+  shell.showItemInFolder(path+'/')
 })
